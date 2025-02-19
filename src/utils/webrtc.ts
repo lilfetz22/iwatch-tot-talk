@@ -8,6 +8,28 @@ export type WebRTCState = {
   remoteStream: MediaStream | null;
 };
 
+export const initiateCall = async (
+  peerConnection: RTCPeerConnection,
+  channel: RealtimeChannel
+) => {
+  try {
+    // Create the offer
+    const offer = await peerConnection.createOffer();
+    // Set it as the local description
+    await peerConnection.setLocalDescription(offer);
+    // Send it through the signaling channel
+    channel.send({
+      type: 'broadcast',
+      event: 'offer',
+      payload: {
+        offer: offer
+      }
+    });
+  } catch (error) {
+    console.error('Error creating offer:', error);
+  }
+};
+
 export const createPeerConnection = () => {
   const config = {
     iceServers: [
@@ -58,21 +80,31 @@ export const setupWebRTCSignaling = (
   });
 
   channel.on('broadcast', { event: 'offer' }, async ({ payload }) => {
-    if (!isBroadcaster) {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.offer));
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      channel.send({
-        type: 'broadcast',
-        event: 'answer',
-        answer,
-      });
-    }
+    try {
+      if (!isBroadcaster && payload && payload.offer) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        channel.send({
+          type: 'broadcast',
+          event: 'answer',
+          payload: {  // Add payload wrapper here too
+            answer: answer
+          }
+        });
+      }} catch (error) {
+        console.error('Error handling offer:', error);
+      }
   });
 
   channel.on('broadcast', { event: 'answer' }, async ({ payload }) => {
-    if (isBroadcaster) {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.answer));
+    try {
+      if (isBroadcaster && payload && payload.answer) {
+        await initiateCall(peerConnection, channel);
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.answer));
+      }
+    } catch (error) {
+      console.error('Error handling answer:', error);
     }
   });
 };

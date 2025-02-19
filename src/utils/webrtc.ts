@@ -42,15 +42,18 @@ export const setupWebRTCSignaling = (
       channel.send({
         type: 'broadcast',
         event: 'ice_candidate',
-        candidate: event.candidate,
+        payload: {  // Add this wrapper
+          candidate: event.candidate
+        }
       });
     }
   };
 
   // Setup signaling channel handlers
   channel.on('broadcast', { event: 'ice_candidate' }, ({ payload }) => {
-    if (payload.candidate) {
-      peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
+    if (payload && payload.candidate)  {
+      peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate))
+        .catch(err => console.error('Error adding ICE candidate:', err));
     }
   });
 

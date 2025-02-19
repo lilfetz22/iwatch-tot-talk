@@ -58,7 +58,15 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-medium mb-8">User Management</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-2xl font-medium">User Management</h1>
+          <Button 
+            variant="outline"
+            onClick={() => navigate("/")}
+          >
+            Back to Home
+          </Button>
+        </div>
         
         <div className="space-y-4">
           {profiles.map((profile) => (

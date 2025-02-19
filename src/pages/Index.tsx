@@ -4,12 +4,12 @@ import { useState } from "react";
 import CameraBroadcaster from "@/components/CameraBroadcaster";
 import CameraViewer from "@/components/CameraViewer";
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
-import { toast } from "sonner";
+import { Navigate, useNavigate } from "react-router-dom";
 
 const Index = () => {
   const [mode, setMode] = useState<'select' | 'broadcast' | 'view'>('select');
   const { user, userStatus, isAdmin, signOut } = useAuth();
+  const navigate = useNavigate();
 
   // Redirect to auth if not logged in
   if (!user) {
@@ -45,19 +45,23 @@ const Index = () => {
     );
   }
 
+  const HeaderButtons = () => (
+    <div className="absolute top-4 right-4 z-10 space-x-2">
+      {isAdmin && user?.email === "billy.fetzner@gmail.com" && (
+        <Button variant="outline" onClick={() => navigate('/admin')}>
+          Admin Panel
+        </Button>
+      )}
+      <Button variant="outline" onClick={() => signOut()}>
+        Sign Out
+      </Button>
+    </div>
+  );
+
   if (mode === 'broadcast') {
     return (
       <>
-        <div className="absolute top-4 right-4 z-10 space-x-2">
-          {isAdmin && (
-            <Button variant="outline" onClick={() => window.location.href = '/admin'}>
-              Admin Panel
-            </Button>
-          )}
-          <Button variant="outline" onClick={() => signOut()}>
-            Sign Out
-          </Button>
-        </div>
+        <HeaderButtons />
         <CameraBroadcaster />
       </>
     );
@@ -66,16 +70,7 @@ const Index = () => {
   if (mode === 'view') {
     return (
       <>
-        <div className="absolute top-4 right-4 z-10 space-x-2">
-          {isAdmin && (
-            <Button variant="outline" onClick={() => window.location.href = '/admin'}>
-              Admin Panel
-            </Button>
-          )}
-          <Button variant="outline" onClick={() => signOut()}>
-            Sign Out
-          </Button>
-        </div>
+        <HeaderButtons />
         <CameraViewer />
       </>
     );
@@ -83,16 +78,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="absolute top-4 right-4 space-x-2">
-        {isAdmin && (
-          <Button variant="outline" onClick={() => window.location.href = '/admin'}>
-            Admin Panel
-          </Button>
-        )}
-        <Button variant="outline" onClick={() => signOut()}>
-          Sign Out
-        </Button>
-      </div>
+      <HeaderButtons />
       
       <div className="glass-panel p-8 max-w-md w-full space-y-6 fade-in">
         <h1 className="text-2xl font-medium text-center mb-8">Select Mode</h1>

@@ -14,21 +14,18 @@ const CameraBroadcaster = () => {
   const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
-    // Create signaling channel
     const channel = supabase.channel('webrtc');
     channelRef.current = channel;
 
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        console.log('Connected to signaling channel');
+        console.log('Broadcaster connected to signaling channel');
       }
     });
 
     return () => {
+      stopStream();
       channel.unsubscribe();
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-      }
     };
   }, []);
 
@@ -38,25 +35,24 @@ const CameraBroadcaster = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         
-        // Create and setup WebRTC peer connection
         const peerConnection = createPeerConnection();
         peerConnectionRef.current = peerConnection;
 
-        // Add tracks to the peer connection
         stream.getTracks().forEach(track => {
           peerConnection.addTrack(track, stream);
         });
 
-        // Setup signaling
         setupWebRTCSignaling(peerConnection, channelRef.current, true);
 
-        // Create and send offer
+        console.log('Creating and sending offer');
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
         channelRef.current.send({
           type: 'broadcast',
           event: 'offer',
-          offer,
+          payload: {
+            offer: offer
+          }
         });
 
         setIsStreaming(true);

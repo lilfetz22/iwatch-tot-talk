@@ -8,28 +8,6 @@ export type WebRTCState = {
   remoteStream: MediaStream | null;
 };
 
-export const initiateCall = async (
-  peerConnection: RTCPeerConnection,
-  channel: RealtimeChannel
-) => {
-  try {
-    // Create the offer
-    const offer = await peerConnection.createOffer();
-    // Set it as the local description
-    await peerConnection.setLocalDescription(offer);
-    // Send it through the signaling channel
-    channel.send({
-      type: 'broadcast',
-      event: 'offer',
-      payload: {
-        offer: offer
-      }
-    });
-  } catch (error) {
-    console.error('Error creating offer:', error);
-  }
-};
-
 export const createPeerConnection = () => {
   const config = {
     iceServers: [
@@ -58,56 +36,86 @@ export const setupWebRTCSignaling = (
   channel: RealtimeChannel,
   isBroadcaster: boolean
 ) => {
-  // Store ICE candidates until remote description is set
-  const pendingCandidates: RTCIceCandidate[] = [];
+  let iceCandidatesQueue: RTCIceCandidate[] = [];
+  let hasRemoteDescription = false;
 
-  // Handle ICE candidates
+  const processIceCandidateQueue = () => {
+    while (iceCandidatesQueue.length > 0 && hasRemoteDescription) {
+      const candidate = iceCandidatesQueue.shift();
+      if (candidate) {
+        peerConnection.addIceCandidate(candidate)
+          .catch(err => console.error('Error adding queued ICE candidate:', err));
+      }
+    }
+  };
+
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
+      console.log('Sending ICE candidate:', event.candidate);
       channel.send({
         type: 'broadcast',
         event: 'ice_candidate',
-        payload: {  // Add this wrapper
+        payload: {
           candidate: event.candidate
         }
       });
     }
   };
 
-  // Setup signaling channel handlers
+  peerConnection.oniceconnectionstatechange = () => {
+    console.log('ICE Connection State:', peerConnection.iceConnectionState);
+  };
+
   channel.on('broadcast', { event: 'ice_candidate' }, ({ payload }) => {
-    if (payload && payload.candidate)  {
-      peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate))
-        .catch(err => console.error('Error adding ICE candidate:', err));
+    console.log('Received ICE candidate');
+    if (payload?.candidate) {
+      const candidate = new RTCIceCandidate(payload.candidate);
+      if (hasRemoteDescription) {
+        peerConnection.addIceCandidate(candidate)
+          .catch(err => console.error('Error adding ICE candidate:', err));
+      } else {
+        console.log('Queueing ICE candidate');
+        iceCandidatesQueue.push(candidate);
+      }
     }
   });
 
   channel.on('broadcast', { event: 'offer' }, async ({ payload }) => {
-    try {
-      if (!isBroadcaster && payload && payload.offer) {
+    if (!isBroadcaster && payload?.offer) {
+      console.log('Received offer, setting remote description');
+      try {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.offer));
+        hasRemoteDescription = true;
+        
+        console.log('Creating answer');
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
+        
         channel.send({
           type: 'broadcast',
           event: 'answer',
-          payload: {  // Add payload wrapper here too
+          payload: {
             answer: answer
           }
         });
-      }} catch (error) {
+
+        processIceCandidateQueue();
+      } catch (error) {
         console.error('Error handling offer:', error);
       }
+    }
   });
 
   channel.on('broadcast', { event: 'answer' }, async ({ payload }) => {
-    try {
-      if (isBroadcaster && payload && payload.answer) {
-        await initiateCall(peerConnection, channel);
+    if (isBroadcaster && payload?.answer) {
+      console.log('Received answer, setting remote description');
+      try {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.answer));
+        hasRemoteDescription = true;
+        processIceCandidateQueue();
+      } catch (error) {
+        console.error('Error handling answer:', error);
       }
-    } catch (error) {
-      console.error('Error handling answer:', error);
     }
   });
 };

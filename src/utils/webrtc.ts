@@ -58,6 +58,9 @@ export const setupWebRTCSignaling = (
   channel: RealtimeChannel,
   isBroadcaster: boolean
 ) => {
+  // Store ICE candidates until remote description is set
+  const pendingCandidates: RTCIceCandidate[] = [];
+
   // Handle ICE candidates
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) {

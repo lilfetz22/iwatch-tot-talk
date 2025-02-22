@@ -52,9 +52,11 @@ const Index = () => {
           Admin Panel
         </Button>
       )}
-      <Button variant="outline" onClick={() => signOut()}>
-        Sign Out
-      </Button>
+      {mode !== 'broadcast' && (
+        <Button variant="outline" onClick={() => signOut()}>
+          Sign Out
+        </Button>
+      )}
     </div>
   );
 

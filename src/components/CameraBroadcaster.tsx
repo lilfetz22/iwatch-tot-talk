@@ -1,7 +1,5 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Video, VideoOff } from 'lucide-react';
 import { getLocalStream, createPeerConnection, setupWebRTCSignaling } from '@/utils/webrtc';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -11,7 +9,6 @@ const CameraBroadcaster = () => {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
     const channel = supabase.channel('webrtc');
@@ -20,6 +17,7 @@ const CameraBroadcaster = () => {
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         console.log('Broadcaster connected to signaling channel');
+        startStream(); // Automatically start streaming when component mounts
       }
     });
 
@@ -76,24 +74,6 @@ const CameraBroadcaster = () => {
     setIsStreaming(false);
   };
 
-  const toggleMute = () => {
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setIsMuted(!isMuted);
-    }
-  };
-
-  const toggleVideo = () => {
-    if (isStreaming) {
-      stopStream();
-    } else {
-      startStream();
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center space-y-4">
       <div className="glass-panel p-6 w-full max-w-3xl fade-in">
@@ -110,26 +90,6 @@ const CameraBroadcaster = () => {
               <p className="text-white text-lg">Camera Off</p>
             </div>
           )}
-        </div>
-        
-        <div className="flex justify-center space-x-4">
-          <Button
-            variant="outline"
-            size="icon"
-            className="rounded-full h-12 w-12"
-            onClick={toggleVideo}
-          >
-            {isStreaming ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="icon"
-            className="rounded-full h-12 w-12"
-            onClick={toggleMute}
-          >
-            {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          </Button>
         </div>
       </div>
     </div>
